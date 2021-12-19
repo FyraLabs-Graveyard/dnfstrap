@@ -38,6 +38,13 @@ dnf --assumeyes --releasever $1\
  --nogpgcheck\
   install @core ultramarine-release-basic
 
+echo "Setting up mount points..."
+touch $2/etc/resolv.conf
+mount --bind /etc/resolv.conf $2/etc/resolv.conf
+mount --bind /dev $2/dev
+mount --bind /proc $2/proc
+mount --bind /sys $2/sys
+
 echo "Would you like to install the GRUB bootloader? (y/n)"
 read -r installgrub
 if [ "$installgrub" = "y" ]; then
@@ -95,12 +102,6 @@ fi
 echo "Would you like to chroot into the system now? (y/n)"
 read chroot
 if [ "$chroot" == "y" ]; then
-    echo "Setting up mount points..."
-    touch $2/etc/resolv.conf
-    mount --bind /etc/resolv.conf $2/etc/resolv.conf
-    mount --bind /dev $2/dev
-    mount --bind /proc $2/proc
-    mount --bind /sys $2/sys
     echo "Entering chroot..."
     chroot $2
     echo "Cleaning up mount points..."
