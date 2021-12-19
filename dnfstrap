@@ -96,7 +96,7 @@ dnf -y --releasever $1\
  --setopt=reposdir=$PWD/repos\
  --exclude=fedora-release*\
  --nogpgcheck\
-  install @core ultramarine-release-basic $3
+  install @core ultramarine-release-basic NetworkManager $3
 
 echo "Setting up mount points..."
 touch $2/etc/resolv.conf
