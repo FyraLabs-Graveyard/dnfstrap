@@ -28,6 +28,10 @@ if [ -z "$1" ]; then
   echo "Usage: dnfstrap [releasever] [chroot_dir]"
   exit 1
 fi
+if [ -z "$2" ]; then
+  echo "Usage: dnfstrap [releasever] [chroot_dir]"
+  exit 1
+fi
 
 
 dnf --assumeyes --releasever $1\
@@ -85,7 +89,7 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
     efidisk=$(df -P boot/efi | sed -n '$s/[[:blank:]].*//p')
     echo "Detected EFI partition on $efidisk, adding to the table..."
     echo "UUID=$(blkid -o value -s UUID $efidisk) /boot/efi vfat defaults 0 0" >> $2/etc/fstab
-
+  fi
 
 
 # ask if we want to make a user
