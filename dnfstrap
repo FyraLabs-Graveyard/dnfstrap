@@ -20,7 +20,7 @@ dnf --assumeyes --releasever $1\
  --setopt=install_weak_deps=False\
  --setopt=reposdir=$PWD/repos\
  --exclude=fedora-release*\
- --nogpgcheck\ # don't check gpg signatures because we don't have them for now
+ --nogpgcheck\
   install @core
 
 
