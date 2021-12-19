@@ -1,19 +1,80 @@
 #!/bin/bash
 
 # DNFStrap - A script to bootstrap an Ultramarine Linux system
-# Basically Anaconda but without the fancy stuff
+# Basically Anaconda but without the fancy stuff, and even more customizable
 
-# check if DNF is installed
-if [ ! -f /usr/bin/dnf ]; then
-  echo "DNF is not installed. Please install DNF and try again."
-  exit 1
-fi
+
+# Fancy ASCII art
 
 # check for root access
 if [ "$(id -u)" != "0" ]; then
   echo "This script must be run as root" 1>&2
   exit 1
 fi
+
+# check for interrupts, then clean up and exit
+trap 'echo "Interrupted by user. Cleaning up...";
+      umount -l $2/dev;
+      umount -l $2/proc;
+      umount -l $2/sys;
+      umount -l $2/etc/resolv.conf
+      exit 1' INT TERM KILL
+
+echo " ______   ___   __    ______   ______   _________  ______    ________   ______    "
+echo "/_____/\\ /__/\\ /__/\\ /_____/\\ /_____/\\ /________/\\/_____/\\  /_______/\\ /_____/\\   "
+echo "\\:::_ \\ \\\\::\\_\\\\  \\ \\\\::::_\\/_\\::::_\\/_\\__.::.__\\/\\:::_ \\ \\ \\::: _  \\ \\\\:::_ \\ \\  "
+echo " \\:\\ \\ \\ \\\\:. \`-\\  \\ \\\\:\\/___/\\\\:\\/___/\\  \\::\\ \\   \\:(_) ) )_\\::(_)  \\ \\\\:(_) \\ \\ "
+echo "  \\:\\ \\ \\ \\\\:. _    \\ \\\\:::._\\/ \\_::._\\:\\  \\::\\ \\   \\: __ \`\\ \\\\:: __  \\ \\\\: ___\\/ "
+echo "   \\:\\/.:| |\\. \\\`-\\  \\ \\\\:\\ \\     /____\\:\\  \\::\\ \\   \\ \\ \`\\ \\ \\\\:.\\ \\  \\ \\\\ \\ \\   "
+echo "    \\____/_/ \\__\\/ \\__\\/ \\_\\/     \\_____\\/   \\__\\/    \\_\\/ \\_\\/ \\__\\/\\__\\/ \\_\\/   "
+echo "                                                                                  "
+echo ""
+echo "DNFStrap - Install Fedora / Ultramarine and pretend you're using Arch Linux!"
+
+
+if [ -z "$1" ]; then
+  echo "Usage: dnfstrap [releasever] [chroot_dir] [extra_packages]"
+  exit 1
+fi
+if [ -z "$2" ]; then
+  echo "Usage: dnfstrap [releasever] [chroot_dir] [extra_packages]"
+  exit 1
+fi
+
+## Distro Checker ##
+if [ ! -f /usr/bin/dnf ]; then
+  # check the distro
+  if [ -f /etc/os-release ]; then
+  # check if user's running arch btw
+    if [ $(cat /etc/os-release | grep -c "ARCH_BASED") -eq 1 ]; then
+      echo "It seems like you use Arch BTW, Do you want to install DNF? (y/n)"
+      read -r answer
+      if [ "$answer" = "y" ]; then
+        pacman -Syu dnf
+      else
+        echo "You need to install DNF to use this script!"
+        exit 1
+      fi
+    fi
+    # check if user has APT (Debian or Ubuntu)
+    if [ -f /usr/bin/apt ]; then
+      echo "It seems like you use Debian or Ubuntu, Do you want to install DNF? (y/n)"
+      read -r answer
+      if [ "$answer" = "y" ]; then
+        apt-get update
+        apt-get install dnf
+      else
+        echo "You need to install DNF to use this script!"
+        exit 1
+      fi
+    fi
+    else
+      echo "We can't determine your distro, please install DNF manually!"
+      exit 1
+  fi
+fi
+
+
 
 # check SELinux status
 if [ -f /etc/selinux/config ]; then
@@ -23,24 +84,19 @@ if [ -f /etc/selinux/config ]; then
   fi
 fi
 
-
-if [ -z "$1" ]; then
-  echo "Usage: dnfstrap [releasever] [chroot_dir]"
-  exit 1
-fi
-if [ -z "$2" ]; then
-  echo "Usage: dnfstrap [releasever] [chroot_dir]"
-  exit 1
-fi
-
-
-dnf --assumeyes --releasever $1\
+read -p 'Would you like to start the bootstrapping process? (y/n) ' yn
+case $yn in
+  [Yy]* ) continue;;
+  [Nn]* ) exit;;
+  * ) echo "Please answer yes or no.";;
+esac
+dnf -y --releasever $1\
  --installroot $2\
  --setopt=install_weak_deps=False\
  --setopt=reposdir=$PWD/repos\
  --exclude=fedora-release*\
  --nogpgcheck\
-  install @core ultramarine-release-basic
+  install @core ultramarine-release-basic $3
 
 echo "Setting up mount points..."
 touch $2/etc/resolv.conf
@@ -52,13 +108,47 @@ mount --bind /sys $2/sys
 echo "Would you like to install the GRUB bootloader? (y/n)"
 read -r installgrub
 if [ "$installgrub" = "y" ]; then
-  chroot $2 dnf install -y grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra
+  chroot $2 dnf install -yq grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra
 fi
 
 echo "Would you like to install the kernel? (y/n)"
 read -r installkernel
 if [ "$installkernel" = "y" ]; then
-  chroot $2 dnf install kernel -y
+  # ask the user for which kernel to install
+  PS3="Please enter the kernel version you would like to install: "
+  options=(
+    'Vanilla'
+    'XanMod'
+    'Liqorix (Zen)'
+    'PatrickL (futex2)'
+  )
+  select opt in "${options[@]}"; do
+    case "$REPLY" in
+      "Vanilla")
+        echo "Installing Torvalds' kernel"
+        chroot $2 dnf install -y kernel
+        break
+        ;;
+      "XanMod")
+        echo "Installing XanMod kernel"
+        dnf copr enable -yq rmnscnce/kernel-xanmod fedora-$1-$(uname -m)
+        chroot $2 dnf install -y kernel-xanmod-edge
+        break
+        ;;
+      "Liqorix (Zen)")
+        echo "Installing Liqorix kernel"
+        dnf copr enable -yq rmnscnce/kernel-lqx fedora-$1-$(uname -m)
+        chroot $2 dnf install -y kernel-lqx
+        break
+        ;;
+      "PatrickL (futex2)")
+        echo "Installing Patrick Laimbock's kernel"
+        dnf copr enable -yq patrickl/kernel
+        chroot $2 dnf install -y kernel --disablerepo fedora --disablerepo fedora-updates
+        ;;
+      *) echo "Invalid option. Please try again."; continue;;
+    esac
+  done
 fi
 
 
@@ -90,8 +180,13 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
     echo "Detected EFI partition on $efidisk, adding to the table..."
     echo "UUID=$(blkid -o value -s UUID $efidisk) /boot/efi vfat defaults 0 0" >> $2/etc/fstab
   fi
+  # now update root UUID in the entries
+  echo "Updating GRUB bootloader entries..."
+  chroot $2 grubby --remove-args="root" --update-kernel ALL
+  chroot $2 grubby --add-args="root=UUID=$(blkid -o value -s UUID $rootdisk)" --update-kernel ALL
 
 fi
+
 # ask if we want to make a user
 echo "Would you like to create a new admin user? (y/n)"
 read user_answer
@@ -100,6 +195,9 @@ if [ "$user_answer" == "y" ]; then
     read username
     chroot $2 useradd -m -G wheel -s /bin/bash $username
     chroot $2 passwd $username
+else
+    echo "Skipping user creation. Root will be the only user, this is very insecure."
+    chroot $2 passwd root
 fi
 
 # Ask if the user would like to chroot into the system
@@ -114,5 +212,5 @@ echo "Cleaning up mount points..."
 umount -l $2/dev
 umount -l $2/proc
 umount -l $2/sys
-umount -l $2/etc/resolv.confnan
+umount -l $2/etc/resolv.conf
 echo "Installation complete."
