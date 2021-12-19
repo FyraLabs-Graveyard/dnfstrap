@@ -1,3 +1,4 @@
 # DNFStrap
+Instant Fedora!
 
-Scripts to bootstrap a Fedora/Ultramarine chroot
+DNFStrap is a collection of scripts to bootstrap a Fedora/Ultramarine chroot from scratch using DNF.
