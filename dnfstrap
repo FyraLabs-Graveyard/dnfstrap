@@ -124,24 +124,24 @@ if [ "$installkernel" = "y" ]; then
   )
   select opt in "${options[@]}"; do
     case "$REPLY" in
-      "Vanilla")
+      "1")
         echo "Installing Torvalds' kernel"
         chroot $2 dnf install -y kernel
         break
         ;;
-      "XanMod")
+      "2")
         echo "Installing XanMod kernel"
         dnf copr enable -yq rmnscnce/kernel-xanmod fedora-$1-$(uname -m)
         chroot $2 dnf install -y kernel-xanmod-edge
         break
         ;;
-      "Liqorix (Zen)")
+      "3")
         echo "Installing Liqorix kernel"
         dnf copr enable -yq rmnscnce/kernel-lqx fedora-$1-$(uname -m)
         chroot $2 dnf install -y kernel-lqx
         break
         ;;
-      "PatrickL (futex2)")
+      "4")
         echo "Installing Patrick Laimbock's kernel"
         dnf copr enable -yq patrickl/kernel
         chroot $2 dnf install -y kernel --disablerepo fedora --disablerepo fedora-updates
@@ -183,7 +183,7 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
   # now update root UUID in the entries
   echo "Updating GRUB bootloader entries..."
   chroot $2 grubby --remove-args="root" --update-kernel ALL
-  chroot $2 grubby --add-args="root=UUID=$(blkid -o value -s UUID $rootdisk)" --update-kernel ALL
+  chroot $2 grubby --add-args=\'"root=UUID=$(blkid -o value -s UUID $rootdisk)"\' --update-kernel ALL
 
 fi
 
