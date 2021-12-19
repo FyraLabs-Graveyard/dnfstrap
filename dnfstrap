@@ -86,7 +86,7 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
   # Check if the EFI partition is present and mounted
   if [ -d $2/boot/efi ]; then
     # Add the EFI partition to the FSTAB
-    efidisk=$(df -P boot/efi | sed -n '$s/[[:blank:]].*//p')
+    efidisk=$(df -P $2/boot/efi | sed -n '$s/[[:blank:]].*//p')
     echo "Detected EFI partition on $efidisk, adding to the table..."
     echo "UUID=$(blkid -o value -s UUID $efidisk) /boot/efi vfat defaults 0 0" >> $2/etc/fstab
   fi
@@ -108,11 +108,11 @@ read chroot
 if [ "$chroot" == "y" ]; then
     echo "Entering chroot..."
     chroot $2
-    echo "Cleaning up mount points..."
-    umount -l $2/dev
-    umount -l $2/proc
-    umount -l $2/sys
-    umount -l $2/etc/resolv.confnan
 fi
 
+echo "Cleaning up mount points..."
+umount -l $2/dev
+umount -l $2/proc
+umount -l $2/sys
+umount -l $2/etc/resolv.confnan
 echo "Installation complete."
