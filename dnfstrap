@@ -189,7 +189,9 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
   cp -av grub.cfg $2/boot/efi/EFI/fedora/grub.cfg
   # replace <UUID> with the UUID of the root partition
   sed -i "s/<UUID>/$(blkid -o value -s UUID $rootdisk)/g" $2/boot/efi/EFI/fedora/grub.cfg
-
+  echo "Generating GRUB configuration..."
+  chroot $2 grub2-mkconfig -o /etc/grub2-efi.cfg
+  chroot $2 grub2-mkconfig -o /etc/grub.cfg
 fi
 
 # ask if we want to make a user
