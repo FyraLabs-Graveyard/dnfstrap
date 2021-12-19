@@ -18,6 +18,7 @@ fi
 # check SELinux status
 if [ -f /etc/selinux/config ]; then
   if [ $(grep -c "SELINUX=enforcing" /etc/selinux/config) -eq 1 ]; then
+    echo "SELinux detected, setting to permissive mode"
     setenforce 0
   fi
 fi
@@ -36,6 +37,48 @@ dnf --assumeyes --releasever $1\
  --exclude=fedora-release*\
  --nogpgcheck\
   install @core ultramarine-release-basic
+
+echo "Would you like to install the GRUB bootloader? (y/n)"
+read -r installgrub
+if [ "$installgrub" = "y" ]; then
+  chroot $2 dnf install -y grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra
+fi
+
+echo "Would you like to install the kernel? (y/n)"
+read -r installkernel
+if [ "$installkernel" = "y" ]; then
+  chroot $2 dnf install kernel -y
+fi
+
+
+# if installgrub and installkernel are both y, then automatically set up the grub config
+if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
+  # Get the disk the root partition is on
+  rootdisk=$(df -P . | sed -n '$s/[[:blank:]].*//p')
+  # check the filesystem type of the root partition
+  rootfs=$(blkid -o value -s TYPE $rootdisk)
+  # Generate FSTAB
+  echo "Generating File System Table..."
+  # check if the root partition is on a btrfs filesystem
+  if [ "$rootfs" = "btrfs" ]; then
+    echo "BTRFS detected, setting up BTRFS filesystem"
+    # get the subvolume name of the root partition
+    rootvol=$(btrfs subvolume list $rootdisk | grep -oP 'id [0-9]+\s+path\s+\K[^\s]+')
+    # generate the fstab
+    echo "UUID=$(blkid -o value -s UUID $rootdisk) / btrfs subvolume=$rootvol 0 0" > $2/etc/fstab
+  else # if the root partition is not on a btrfs filesystem
+    # generate the fstab
+    echo "UUID=$(blkid -o value -s UUID $rootdisk) / ext4 defaults 0 0" > $2/etc/fstab
+  fi
+
+
+  # Check if the EFI partition is present and mounted
+  if [ -d $2/boot/efi ]; then
+    # Add the EFI partition to the FSTAB
+    efidisk=$(df -P boot/efi | sed -n '$s/[[:blank:]].*//p')
+    echo "Detected EFI partition on $efidisk, adding to the table..."
+    echo "UUID=$(blkid -o value -s UUID $efidisk) /boot/efi vfat defaults 0 0" >> $2/etc/fstab
+
 
 
 # ask if we want to make a user
