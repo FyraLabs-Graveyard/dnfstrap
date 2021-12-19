@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# DNFStrap - A script to bootstrap an Ultramarine Linux system
+# Basically Anaconda but without the fancy stuff
+
+# check if DNF is installed
+if [ ! -f /usr/bin/dnf ]; then
+  echo "DNF is not installed. Please install DNF and try again."
+  exit 1
+fi
+
+if [ -z "$1" ]; then
+  echo "Usage: dnfstrap [releasever] [chroot_dir]"
+  exit 1
+fi
+
+
+dnf --assumeyes --releasever $1\
+ --installroot $2\
+ --setopt=install_weak_deps=False\
+ --setopt=reposdir=$PWD/repos\
+ --exclude=fedora-release*\
+  install @core
+
+
+# ask if we want to make a user
+echo "Would you like to create a new admin user? (y/n)"
+read user_answer
+if [ "$user_answer" == "y" ]; then
+    echo "Please enter a username for the new user:"
+    read username
+    chroot $2 useradd -m -G wheel -s /bin/bash $username
+    chroot $2 passwd $username
+fi
+
+# Ask if the user would like to chroot into the system
+echo "Would you like to chroot into the system now? (y/n)"
+read chroot
+if [ "$chroot" == "y" ]; then
+    echo "Setting up mount points..."
+    touch $2/etc/resolv.conf
+    mount --bind /etc/resolv.conf $2/etc/resolv.conf
+    mount --bind /dev $2/dev
+    mount --bind /proc $2/proc
+    mount --bind /sys $2/sys
+    echo "Entering chroot..."
+    chroot $2
+    echo "Cleaning up mount points..."
+    umount -l $2/dev
+    umount -l $2/proc
+    umount -l $2/sys
+    umount -l $2/etc/resolv.conf
+fi
+
+echo "Installation complete."
