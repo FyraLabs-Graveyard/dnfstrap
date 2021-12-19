@@ -108,7 +108,7 @@ mount --bind /sys $2/sys
 echo "Would you like to install the GRUB bootloader? (y/n)"
 read -r installgrub
 if [ "$installgrub" = "y" ]; then
-  chroot $2 dnf install -yq grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra
+  chroot $2 dnf install -yq grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra shim grubby grub2-efi-x64-modules grub2-common
 fi
 
 echo "Would you like to install the kernel? (y/n)"
@@ -183,7 +183,12 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
   # now update root UUID in the entries
   echo "Updating GRUB bootloader entries..."
   chroot $2 grubby --remove-args="root" --update-kernel ALL
-  chroot $2 grubby --add-args=\'"root=UUID=$(blkid -o value -s UUID $rootdisk)"\' --update-kernel ALL
+  chroot $2 grubby --remove-args='rd.live.image' --update-kernel ALL
+  chroot $2 grubby --args "root=UUID=$(blkid -o value -s UUID $rootdisk)" --update-kernel ALL
+
+  cp -av grub.cfg $2/boot/efi/EFI/fedora/grub.cfg
+  # replace <UUID> with the UUID of the root partition
+  sed -i "s/<UUID>/$(blkid -o value -s UUID $rootdisk)/g" $2/boot/efi/EFI/fedora/grub.cfg
 
 fi
 
@@ -199,6 +204,9 @@ else
     echo "Skipping user creation. Root will be the only user, this is very insecure."
     chroot $2 passwd root
 fi
+
+
+echo "Installation is almost complete, please check your GRUB configuration to ensure it is correct and bootable."
 
 # Ask if the user would like to chroot into the system
 echo "Would you like to chroot into the system now? (y/n)"
