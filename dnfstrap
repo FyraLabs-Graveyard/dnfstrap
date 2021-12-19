@@ -91,7 +91,7 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
     echo "UUID=$(blkid -o value -s UUID $efidisk) /boot/efi vfat defaults 0 0" >> $2/etc/fstab
   fi
 
-
+fi
 # ask if we want to make a user
 echo "Would you like to create a new admin user? (y/n)"
 read user_answer
