@@ -35,7 +35,7 @@ dnf --assumeyes --releasever $1\
  --setopt=reposdir=$PWD/repos\
  --exclude=fedora-release*\
  --nogpgcheck\
-  install @core
+  install @core ultramarine-release-basic
 
 
 # ask if we want to make a user
@@ -64,7 +64,7 @@ if [ "$chroot" == "y" ]; then
     umount -l $2/dev
     umount -l $2/proc
     umount -l $2/sys
-    umount -l $2/etc/resolv.conf
+    umount -l $2/etc/resolv.confnan
 fi
 
 echo "Installation complete."
