@@ -71,11 +71,6 @@ done
 
 # if enter-only is set, simply enter the chroot
 if [ "$ENTER_ONLY" == "1" ]; then
-  # check if the chroot is defined
-  if [ -z "$CHROOT" ]; then
-    echo "Chroot directory not defined"
-    exit 1
-  fi
   # check if the device is an nvme device
   if [ -z "$DEVICE" ]; then
     echo "Device not defined"
