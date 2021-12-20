@@ -342,7 +342,7 @@ fi
 # if installgrub and installkernel are both y, then automatically set up the grub config
 if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
   # Get the disk the root partition is on
-  rootdisk=$(df -P . | sed -n '$s/[[:blank:]].*//p')
+  rootdisk=$(df -P $CHROOT | sed -n '$s/[[:blank:]].*//p')
   # check the filesystem type of the root partition
   rootfs=$(blkid -o value -s TYPE $rootdisk)
   # Generate FSTAB
@@ -371,7 +371,7 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
   echo "Updating GRUB bootloader entries..."
   chroot $CHROOT grubby --remove-args="root" --update-kernel ALL
   chroot $CHROOT grubby --remove-args='rd.live.image' --update-kernel ALL
-  chroot $CHROOT grubby --args "root=UUID=$(blkid -o value -s UUID $rootdisk)" --update-kernel ALL
+  chroot $CHROOT grubby --args "root=UUID=$(blkid -o value -s UUID $rootdisk) quiet" --update-kernel ALL
 
   cp -av grub.cfg $CHROOT/boot/efi/EFI/fedora/grub.cfg
   # replace <UUID> with the UUID of the root partition
