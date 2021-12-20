@@ -318,19 +318,19 @@ if [ "$installkernel" = "y" ]; then
         ;;
       "2")
         echo "Installing XanMod kernel"
-        dnf copr enable -yq rmnscnce/kernel-xanmod fedora-$RELEASE-$(uname -m)
+        dnf copr enable -y rmnscnce/kernel-xanmod fedora-35-$(uname -m)
         chroot $CHROOT dnf install -y kernel-xanmod-edge
         break
         ;;
       "3")
         echo "Installing Liqorix kernel"
-        dnf copr enable -yq rmnscnce/kernel-lqx fedora-$RELEASE-$(uname -m)
+        dnf copr enable -y rmnscnce/kernel-lqx fedora-35-$(uname -m)
         chroot $CHROOT dnf install -y kernel-lqx
         break
         ;;
       "4")
         echo "Installing Patrick Laimbock's kernel"
-        dnf copr enable -yq patrickl/kernel
+        dnf copr enable -y patrickl/kernel fedora-35-$(uname -m)
         chroot $CHROOT dnf install -y kernel --disablerepo fedora --disablerepo fedora-updates
         ;;
       *) echo "Invalid option. Please try again."; continue;;
