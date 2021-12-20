@@ -272,9 +272,8 @@ dnf -y --releasever $RELEASE\
  --installroot $CHROOT\
  --setopt=install_weak_deps=False\
  --setopt=reposdir=$PWD/repos\
- --exclude=fedora-release*\
  --nogpgcheck\
-  install @core ultramarine-release-basic NetworkManager $INSTALLPKGS
+  install @coreNetworkManager $INSTALLPKGS
 
 echo "Setting up mount points..."
 touch $CHROOT/etc/resolv.conf
@@ -394,17 +393,6 @@ else
     chroot $CHROOT passwd root
 fi
 
-
-# Set up SELinux in the chroot
-echo "Setting up SELinux..."
-chroot $CHROOT setenforce 0
-sed -i 's/^SELINUX=disabled/SELINUX=enforcing/' $CHROOT/etc/selinux/config
-sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' $CHROOT/etc/selinux/config
-chroot $CHROOT dnf install -yq policycoreutils-dbus policycoreutils-restorecond
-chroot $CHROOT restorecon -R /
-
-
-
 # Set up the system clock
 echo "Setting up the system clock..."
 chroot $CHROOT timedatectl set-ntp true
@@ -423,7 +411,13 @@ else
   chroot $CHROOT ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
 fi
 
-
+# Set up SELinux in the chroot
+echo "Setting up SELinux..."
+chroot $CHROOT setenforce 0
+sed -i 's/^SELINUX=disabled/SELINUX=enforcing/' $CHROOT/etc/selinux/config
+sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' $CHROOT/etc/selinux/config
+chroot $CHROOT dnf install -yq policycoreutils-dbus policycoreutils-restorecond
+chroot $CHROOT restorecon -R /
 
 # Set up the hostname
 echo "Setting up the hostname..."
