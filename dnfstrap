@@ -21,8 +21,8 @@ echo "   \\:\\/.:| |\\. \\\`-\\  \\ \\\\:\\ \\     /____\\:\\  \\::\\ \\   \\ \\
 echo "    \\____/_/ \\__\\/ \\__\\/ \\_\\/     \\_____\\/   \\__\\/    \\_\\/ \\_\\/ \\__\\/\\__\\/ \\_\\/   "
 echo "                                                                                  "
 echo ""
-echo "DNFStrap - Install Fedora / Ultramarine and pretend you're using Arch Linux!"
-echo "Also known as Lorax, but entirely in bash."
+echo "DNFStrap - Fedora, the hard way"
+echo "A bash script replacement for the Anaconda installer"
 echo ""
 
 # Arguments
@@ -371,7 +371,7 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
   echo "Updating GRUB bootloader entries..."
   chroot $CHROOT grubby --remove-args="root" --update-kernel ALL
   chroot $CHROOT grubby --remove-args='rd.live.image' --update-kernel ALL
-  chroot $CHROOT grubby --args "root=UUID=$(blkid -o value -s UUID $rootdisk) quiet" --update-kernel ALL
+  chroot $CHROOT grubby --args "root=UUID=$(blkid -o value -s UUID $rootdisk) rw quiet" --update-kernel ALL
 
   cp -av grub.cfg $CHROOT/boot/efi/EFI/fedora/grub.cfg
   # replace <UUID> with the UUID of the root partition
