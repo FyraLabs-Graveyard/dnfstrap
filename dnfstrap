@@ -267,17 +267,10 @@ case $yn in
   * ) echo "Please answer yes or no.";;
 esac
 
-read -p "Would you like to install weak dependencies? (y/n) " yn
-case $yn in
-  [Yy]* ) WEAKDEPS=True ;;
-  [Nn]* ) WEAKDEPS=False ;;
-  * ) echo "Please answer yes or no.";;
-esac
-
 echo "Bootstrapping with DNF..."
 dnf -y --releasever $RELEASE\
  --installroot $CHROOT\
- --setopt=install_weak_deps=$WEAKDEPS\
+ --setopt=install_weak_deps=False\
  --setopt=reposdir=$PWD/repos\
  --exclude=fedora-release*\
  --nogpgcheck\
@@ -404,10 +397,13 @@ fi
 
 # Set up SELinux in the chroot
 echo "Setting up SELinux..."
-# restore contexts for the chroot
+chroot $CHROOT setenforce 0
+sed -i 's/^SELINUX=disabled/SELINUX=enforcing/' $CHROOT/etc/selinux/config
+sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' $CHROOT/etc/selinux/config
+chroot $CHROOT dnf install -yq policycoreutils-dbus policycoreutils-restorecond
 chroot $CHROOT restorecon -R /
-# set SELinux to enforcing
-chroot $CHROOT setenforce 1
+
+
 
 # Set up the system clock
 echo "Setting up the system clock..."
@@ -433,12 +429,21 @@ fi
 echo "Setting up the hostname..."
 echo "Please enter the hostname you would like to use:"
 read hostname
+if [ -z "$hostname" ]; then
+  echo "No hostname specified, using default"
+  chroot $CHROOT hostnamectl set-hostname "ultramarine"
+else
+  chroot $CHROOT hostnamectl set-hostname "$hostname"
+fi
 echo $hostname > $CHROOT/etc/hostname
 
 # Set up the network
 echo "Setting up the network..."
 # auto-configure the network
 chroot $CHROOT dhclient
+chroot $CHROOT systemctl enable NetworkManager
+chroot $CHROOT systemctl enable systemd-resolved
+
 
 echo "Installation is almost complete, please check your GRUB configuration to ensure it is correct and bootable."
 
