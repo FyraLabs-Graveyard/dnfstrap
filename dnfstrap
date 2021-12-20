@@ -7,18 +7,10 @@
 # Fancy ASCII art
 
 # check for root access
-if [ "$(id -u)" != "0" ]; then
-  echo "This script must be run as root" 1>&2
-  exit 1
-fi
-
-# check for interrupts, then clean up and exit
-trap 'echo "Interrupted by user. Cleaning up...";
-      umount -l $2/dev;
-      umount -l $2/proc;
-      umount -l $2/sys;
-      umount -l $2/etc/resolv.conf
-      exit 1' INT TERM KILL
+#if [ "$(id -u)" != "0" ]; then
+#  echo "This script must be run as root" 1>&2
+#  exit 1
+#fi
 
 echo " ______   ___   __    ______   ______   _________  ______    ________   ______    "
 echo "/_____/\\ /__/\\ /__/\\ /_____/\\ /_____/\\ /________/\\/_____/\\  /_______/\\ /_____/\\   "
@@ -30,16 +22,146 @@ echo "    \\____/_/ \\__\\/ \\__\\/ \\_\\/     \\_____\\/   \\__\\/    \\_\\/ \\
 echo "                                                                                  "
 echo ""
 echo "DNFStrap - Install Fedora / Ultramarine and pretend you're using Arch Linux!"
+echo "Also known as Lorax, but entirely in bash."
+echo ""
 
+# Arguments
+usage(){
+  echo "usage $0 [options]"
+  echo "  -h, --help              Show this help message and exit"
+  echo "  -c, --chroot            Set chroot directory"
+  echo "  -d, --device            Set block device to automatically format (DANGEROUS)"
+  echo "  -r, --release           Set release version"
+}
 
-if [ -z "$1" ]; then
-  echo "Usage: dnfstrap [releasever] [chroot_dir] [extra_packages]"
+# Parse arguments
+while [ "$1" != "" ]; do
+  case $1 in
+    -h | --help ) usage
+                  exit
+                  ;;
+    -c | --chroot ) shift
+                  CHROOT=$1
+                  ;;
+    -d | --device ) shift
+                  DEVICE=$1
+                  ;;
+    -r | --release ) shift
+                  RELEASE=$1
+                  ;;
+    # -i can be defined multiple times
+    -i | --installpkgs ) shift
+                  INSTALLPKGS="$INSTALLPKGS $1"
+                  ;;
+    -p | --pkglist ) shift
+                  # pkglist is a file containing a list of packages to install seperated by newlines, so we join them with spaces
+                  INSTALLPKGS="$INSTALLPKGS $(cat $1)"
+                  ;;
+    --dry ) DRY=1
+          ;;
+    * ) usage
+        exit 1
+  esac
+  shift
+done
+
+echo "Chroot directory: $CHROOT"
+echo "Block device: $DEVICE"
+echo "Release version: $RELEASE"
+
+# Require release argument
+if [ -z "$RELEASE" ]; then
+  echo "Please specify a release version"
   exit 1
 fi
-if [ -z "$2" ]; then
-  echo "Usage: dnfstrap [releasever] [chroot_dir] [extra_packages]"
+
+# if device and chroot are set, then error
+if [ ! -z "$DEVICE" ] && [ ! -z "$CHROOT" ]; then
+  echo "Please specify either a device or a chroot directory, not both"
   exit 1
 fi
+
+if [ ! -z "$CHROOT" ]; then
+  # Check if chroot directory exists
+  if [ ! -d "$CHROOT" ]; then
+    echo "Chroot directory does not exist"
+    exit 1
+  fi
+fi
+
+# if device is set, then format it
+if [ ! -z "$DEVICE" ]; then
+  # calculate the partitions
+  # 100MB EFI partition
+  # everything else is /
+
+  # make the layout
+  # get the whole disk size in megabytes
+  DISKSIZE=$(fdisk -l $DEVICE | grep Disk | awk '{print $5}')
+  # these are in bytes, so convert to gigabytes
+  HDISKSIZE=$(($DISKSIZE / 1024 / 1024 / 1024))
+  # calculate the partition sizes
+  # the ESP Size will always be 100MB so we can turn it into bytes
+  ESPSIZE=104857600
+  # the rest of the disk is the root partition
+  ROOTSIZE=$(($DISKSIZE - $ESPSIZE))
+  # human readable sizes
+  HESPSIZE=$(($ESPSIZE / 1024 / 1024))M
+  HROOTSIZE=$(($ROOTSIZE / 1024 / 1024))M
+  echo "Block device is selected, showing partition layout"
+  echo "============================================================"
+  echo ""
+  echo "ESP size: $HESPSIZE"
+  echo "ROOT size: $HROOTSIZE"
+  echo ""
+  #exit
+  # ask if you really want to format the device
+  read -p "This will Format $DEVICE, All data will be LOST! are you REALLY sure? (y/N) " -n 1 -r yn
+  case $yn in
+  [Yy]* ) echo " Formatting $DEVICE..."
+          # wipe the device
+          echo " Wiping $DEVICE..."
+          dd if=/dev/zero of=$DEVICE bs=1M count=1
+          # create the partitions
+          echo " Creating partitions..."
+          parted $DEVICE mklabel gpt
+          parted $DEVICE mkpart ESP fat32 1 100
+          parted $DEVICE set 1 boot on
+          parted $DEVICE mkpart primary ext4 100%
+          # format the partitions
+          echo " Formatting partitions..."
+          # check if it's an nvme device
+          if [ "$(echo $DEVICE | grep nvme)" ]; then
+            # nvme devices need a special format
+            mkfs.vfat -F32 -n ESP $DEVICE"p1"
+            mkfs.ext4 -F -L root $DEVICE"p2"
+            PART="$DEVICE"p
+          else
+            mkfs.vfat -F32 -n ESP $DEVICE"1"
+            mkfs.ext4 -F -L root $DEVICE"2"
+            PART="$DEVICE"
+          fi
+          echo " Mounting partitions to /mnt/sysroot..."
+          # mount the partitions
+          mkdir -p /mnt/sysroot
+          mount $PART"1" /mnt/sysroot
+          mkdir -p /mnt/sysroot/boot/efi
+          mount $PART"2" /mnt/sysroot/boot/efi
+          export CHROOT=/mnt/sysroot
+          ;;
+  [Nn]* ) echo " Exiting..."
+          exit
+          ;;
+  * ) echo " Invalid answer, assuming no"
+      echo "Exiting..."
+      exit
+      ;;
+
+  esac
+fi
+
+
+#exit
 
 ## Distro Checker ##
 if [ ! -f /usr/bin/dnf ]; then
@@ -78,10 +200,8 @@ fi
 
 # check SELinux status
 if [ -f /etc/selinux/config ]; then
-  if [ $(grep -c "SELINUX=enforcing" /etc/selinux/config) -eq 1 ]; then
-    echo "SELinux detected, setting to permissive mode"
-    setenforce 0
-  fi
+  echo "SELinux detected, setting to permissive mode"
+  setenforce 0
 fi
 
 read -p 'Would you like to start the bootstrapping process? (y/n) ' yn
@@ -90,25 +210,36 @@ case $yn in
   [Nn]* ) exit;;
   * ) echo "Please answer yes or no.";;
 esac
-dnf -y --releasever $1\
- --installroot $2\
+
+echo "Bootstrapping with DNF..."
+dnf -y --releasever $RELEASE\
+ --installroot $CHROOT\
  --setopt=install_weak_deps=False\
  --setopt=reposdir=$PWD/repos\
  --exclude=fedora-release*\
  --nogpgcheck\
-  install @core ultramarine-release-basic NetworkManager $3
+  install @core ultramarine-release-basic NetworkManager $INSTALLPKGS
 
 echo "Setting up mount points..."
-touch $2/etc/resolv.conf
-mount --bind /etc/resolv.conf $2/etc/resolv.conf
-mount --bind /dev $2/dev
-mount --bind /proc $2/proc
-mount --bind /sys $2/sys
+touch $CHROOT/etc/resolv.conf
+mount --bind /etc/resolv.conf $CHROOT/etc/resolv.conf
+mount --bind /dev $CHROOT/dev
+mount --bind /proc $CHROOT/proc
+mount --bind /sys $CHROOT/sys
+
+# check for interrupts, then clean up and exit
+trap 'echo "Interrupted by user. Cleaning up...";
+      umount -l $CHROOT/dev;
+      umount -l $CHROOT/proc;
+      umount -l $CHROOT/sys;
+      umount -l $CHROOT/etc/resolv.conf
+      exit 1' INT TERM KILL
+
 
 echo "Would you like to install the GRUB bootloader? (y/n)"
 read -r installgrub
 if [ "$installgrub" = "y" ]; then
-  chroot $2 dnf install -yq grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra shim grubby grub2-efi-x64-modules grub2-common
+  chroot $CHROOT dnf install -yq grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra shim grubby grub2-efi-x64-modules grub2-common
 fi
 
 echo "Would you like to install the kernel? (y/n)"
@@ -126,25 +257,25 @@ if [ "$installkernel" = "y" ]; then
     case "$REPLY" in
       "1")
         echo "Installing Torvalds' kernel"
-        chroot $2 dnf install -y kernel
+        chroot $CHROOT dnf install -y kernel
         break
         ;;
       "2")
         echo "Installing XanMod kernel"
-        dnf copr enable -yq rmnscnce/kernel-xanmod fedora-$1-$(uname -m)
-        chroot $2 dnf install -y kernel-xanmod-edge
+        dnf copr enable -yq rmnscnce/kernel-xanmod fedora-$RELEASE-$(uname -m)
+        chroot $CHROOT dnf install -y kernel-xanmod-edge
         break
         ;;
       "3")
         echo "Installing Liqorix kernel"
-        dnf copr enable -yq rmnscnce/kernel-lqx fedora-$1-$(uname -m)
-        chroot $2 dnf install -y kernel-lqx
+        dnf copr enable -yq rmnscnce/kernel-lqx fedora-$RELEASE-$(uname -m)
+        chroot $CHROOT dnf install -y kernel-lqx
         break
         ;;
       "4")
         echo "Installing Patrick Laimbock's kernel"
         dnf copr enable -yq patrickl/kernel
-        chroot $2 dnf install -y kernel --disablerepo fedora --disablerepo fedora-updates
+        chroot $CHROOT dnf install -y kernel --disablerepo fedora --disablerepo fedora-updates
         ;;
       *) echo "Invalid option. Please try again."; continue;;
     esac
@@ -166,32 +297,32 @@ if [ "$installgrub" = "y" ] && [ "$installkernel" = "y" ]; then
     # get the subvolume name of the root partition
     rootvol=$(btrfs subvolume list $rootdisk | grep -oP 'id [0-9]+\s+path\s+\K[^\s]+')
     # generate the fstab
-    echo "UUID=$(blkid -o value -s UUID $rootdisk) / btrfs subvolume=$rootvol 0 0" > $2/etc/fstab
+    echo "UUID=$(blkid -o value -s UUID $rootdisk) / btrfs subvolume=$rootvol 0 0" > $CHROOT/etc/fstab
   else # if the root partition is not on a btrfs filesystem
     # generate the fstab
-    echo "UUID=$(blkid -o value -s UUID $rootdisk) / ext4 defaults 0 0" > $2/etc/fstab
+    echo "UUID=$(blkid -o value -s UUID $rootdisk) / ext4 defaults 0 0" > $CHROOT/etc/fstab
   fi
 
 
   # Check if the EFI partition is present and mounted
-  if [ -d $2/boot/efi ]; then
+  if [ -d $CHROOT/boot/efi ]; then
     # Add the EFI partition to the FSTAB
-    efidisk=$(df -P $2/boot/efi | sed -n '$s/[[:blank:]].*//p')
+    efidisk=$(df -P $CHROOT/boot/efi | sed -n '$s/[[:blank:]].*//p')
     echo "Detected EFI partition on $efidisk, adding to the table..."
-    echo "UUID=$(blkid -o value -s UUID $efidisk) /boot/efi vfat defaults 0 0" >> $2/etc/fstab
+    echo "UUID=$(blkid -o value -s UUID $efidisk) /boot/efi vfat defaults 0 0" >> $CHROOT/etc/fstab
   fi
   # now update root UUID in the entries
   echo "Updating GRUB bootloader entries..."
-  chroot $2 grubby --remove-args="root" --update-kernel ALL
-  chroot $2 grubby --remove-args='rd.live.image' --update-kernel ALL
-  chroot $2 grubby --args "root=UUID=$(blkid -o value -s UUID $rootdisk)" --update-kernel ALL
+  chroot $CHROOT grubby --remove-args="root" --update-kernel ALL
+  chroot $CHROOT grubby --remove-args='rd.live.image' --update-kernel ALL
+  chroot $CHROOT grubby --args "root=UUID=$(blkid -o value -s UUID $rootdisk)" --update-kernel ALL
 
-  cp -av grub.cfg $2/boot/efi/EFI/fedora/grub.cfg
+  cp -av grub.cfg $CHROOT/boot/efi/EFI/fedora/grub.cfg
   # replace <UUID> with the UUID of the root partition
-  sed -i "s/<UUID>/$(blkid -o value -s UUID $rootdisk)/g" $2/boot/efi/EFI/fedora/grub.cfg
+  sed -i "s/<UUID>/$(blkid -o value -s UUID $rootdisk)/g" $CHROOT/boot/efi/EFI/fedora/grub.cfg
   echo "Generating GRUB configuration..."
-  chroot $2 grub2-mkconfig -o /etc/grub2-efi.cfg
-  chroot $2 grub2-mkconfig -o /etc/grub.cfg
+  chroot $CHROOT grub2-mkconfig -o /etc/grub2-efi.cfg
+  chroot $CHROOT grub2-mkconfig -o /etc/grub.cfg
 fi
 
 # ask if we want to make a user
@@ -200,11 +331,11 @@ read user_answer
 if [ "$user_answer" == "y" ]; then
     echo "Please enter a username for the new user:"
     read username
-    chroot $2 useradd -m -G wheel -s /bin/bash $username
-    chroot $2 passwd $username
+    chroot $CHROOT useradd -m -G wheel -s /bin/bash $username
+    chroot $CHROOT passwd $username
 else
     echo "Skipping user creation. Root will be the only user, this is very insecure."
-    chroot $2 passwd root
+    chroot $CHROOT passwd root
 fi
 
 
@@ -215,12 +346,12 @@ echo "Would you like to chroot into the system now? (y/n)"
 read chroot
 if [ "$chroot" == "y" ]; then
     echo "Entering chroot..."
-    chroot $2
+    chroot $CHROOT
 fi
 
 echo "Cleaning up mount points..."
-umount -l $2/dev
-umount -l $2/proc
-umount -l $2/sys
-umount -l $2/etc/resolv.conf
+umount -l $CHROOT/dev
+umount -l $CHROOT/proc
+umount -l $CHROOT/sys
+umount -l $CHROOT/etc/resolv.conf
 echo "Installation complete."
