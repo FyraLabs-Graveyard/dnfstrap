@@ -267,10 +267,17 @@ case $yn in
   * ) echo "Please answer yes or no.";;
 esac
 
+read -p "Would you like to install weak dependencies? (y/n) " yn
+case $yn in
+  [Yy]* ) WEAKDEPS=True ;;
+  [Nn]* ) WEAKDEPS=False ;;
+  * ) echo "Please answer yes or no.";;
+esac
+
 echo "Bootstrapping with DNF..."
 dnf -y --releasever $RELEASE\
  --installroot $CHROOT\
- --setopt=install_weak_deps=False\
+ --setopt=install_weak_deps=$WEAKDEPS\
  --setopt=reposdir=$PWD/repos\
  --exclude=fedora-release*\
  --nogpgcheck\
@@ -394,6 +401,44 @@ else
     chroot $CHROOT passwd root
 fi
 
+
+# Set up SELinux in the chroot
+echo "Setting up SELinux..."
+# restore contexts for the chroot
+chroot $CHROOT restorecon -R /
+# set SELinux to enforcing
+chroot $CHROOT setenforce 1
+
+# Set up the system clock
+echo "Setting up the system clock..."
+chroot $CHROOT timedatectl set-ntp true
+
+# Set up the timezone
+echo "Setting up the timezone..."
+# ask for the timezone
+PS3="Please enter the timezone you would like to use: (Default: Use NTP)"
+read -r timezone
+# if timezone is blank use NTP
+if [ -z "$timezone" ]; then
+  echo "No timezone specified, using NTP"
+  chroot $CHROOT timedatectl set-ntp true
+else
+  # set the timezone
+  chroot $CHROOT ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
+fi
+
+
+
+# Set up the hostname
+echo "Setting up the hostname..."
+echo "Please enter the hostname you would like to use:"
+read hostname
+echo $hostname > $CHROOT/etc/hostname
+
+# Set up the network
+echo "Setting up the network..."
+# auto-configure the network
+chroot $CHROOT dhclient
 
 echo "Installation is almost complete, please check your GRUB configuration to ensure it is correct and bootable."
 
