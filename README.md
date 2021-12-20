@@ -8,8 +8,7 @@
     \____/_/ \__\/ \__\/ \_\/     \_____\/   \__\/    \_\/ \_\/ \__\/\__\/ \_\/   
 ```
 
-# DNFStrap
-Instant Fedora!
+# DNFStrap - Instant Fedora!
 
 Do you like Fedora? Are all your friends using Arch Linux but you're afraid of them looking down on you for using a "Just Works" system?
 
