@@ -418,7 +418,31 @@ chroot $CHROOT setenforce 0
 sed -i 's/^SELINUX=disabled/SELINUX=enforcing/' $CHROOT/etc/selinux/config
 sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' $CHROOT/etc/selinux/config
 chroot $CHROOT dnf install -y policycoreutils-dbus policycoreutils-restorecond
-chroot $CHROOT restorecon -R /
+
+# let's add a firstboot script
+echo "Setting up firstboot script..."
+cat > $CHROOT/etc/init.d/firstboot << EOF
+#!/bin/bash
+# dnfstrap: firstboot script
+# chkconfig: 345 00 99
+# description: Init script for live image.
+### BEGIN INIT INFO
+# X-Start-Before: network.target
+### END INIT INFO
+
+. /etc/init.d/functions
+
+setenforce 0
+sed -i 's/^SELINUX=disabled/SELINUX=enforcing/' /etc/selinux/config
+sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' /etc/selinux/config
+restorecon -Rv /
+setenforce 1
+# self-destruct
+chkconfig firstboot off
+EOF
+chmod +x $CHROOT/etc/init.d/firstboot
+chroot $CHROOT restorecon /etc/init.d/firstboot
+chroot $CHROOT chkconfig --add firstboot
 
 # Set up the hostname
 echo "Setting up the hostname..."
