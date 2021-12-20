@@ -393,10 +393,6 @@ else
     chroot $CHROOT passwd root
 fi
 
-# Set up the system clock
-echo "Setting up the system clock..."
-chroot $CHROOT timedatectl set-ntp true
-
 # Set up the timezone
 echo "Setting up the timezone..."
 # ask for the timezone
@@ -405,8 +401,7 @@ read timezone
 
 # if timezone is blank use NTP
 if [ -z "$timezone" ]; then
-  echo "No timezone specified, using NTP"
-  chroot $CHROOT timedatectl set-ntp true
+  echo "No timezone specified, using defaults"
 else
   # set the timezone
   chroot $CHROOT ln -sf /usr/share/zoneinfo/$timezone /etc/localtime
@@ -418,14 +413,15 @@ chroot $CHROOT setenforce 0
 sed -i 's/^SELINUX=disabled/SELINUX=enforcing/' $CHROOT/etc/selinux/config
 sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' $CHROOT/etc/selinux/config
 chroot $CHROOT dnf install -y policycoreutils-dbus policycoreutils-restorecond
-
+# disable auditd to prevent the 1:30 delay
+chroot $CHROOT systemctl disable auditd
 # let's add a firstboot script
 echo "Setting up firstboot script..."
 cat > $CHROOT/etc/init.d/firstboot << EOF
 #!/bin/bash
 # dnfstrap: firstboot script
 # chkconfig: 345 00 99
-# description: Init script for live image.
+# description: DNFStrap firstboot script
 ### BEGIN INIT INFO
 # X-Start-Before: network.target
 ### END INIT INFO
@@ -437,6 +433,7 @@ sed -i 's/^SELINUX=disabled/SELINUX=enforcing/' /etc/selinux/config
 sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' /etc/selinux/config
 restorecon -Rv /
 setenforce 1
+systemctl enable --now auditd
 # self-destruct
 chkconfig firstboot off
 EOF
@@ -458,7 +455,6 @@ fi
 # Set up the network
 echo "Setting up the network..."
 # auto-configure the network
-chroot $CHROOT dhclient
 chroot $CHROOT systemctl enable NetworkManager
 chroot $CHROOT systemctl enable systemd-resolved
 chroot $CHROOT systemctl enable dbus
