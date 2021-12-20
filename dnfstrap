@@ -437,7 +437,7 @@ echo "Setting up the network..."
 chroot $CHROOT dhclient
 chroot $CHROOT systemctl enable NetworkManager
 chroot $CHROOT systemctl enable systemd-resolved
-chroot $CHROOT systemdtl enable dbus
+chroot $CHROOT systemctl enable dbus
 
 echo "Installation is almost complete, please check your configuration to ensure it is correct and bootable."
 
