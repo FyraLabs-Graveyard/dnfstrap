@@ -273,7 +273,7 @@ dnf -y --releasever $RELEASE\
  --setopt=install_weak_deps=False\
  --setopt=reposdir=$PWD/repos\
  --nogpgcheck\
-  install @core NetworkManager $INSTALLPKGS
+  install @core NetworkManager dbus-daemon $INSTALLPKGS
 
 echo "Setting up mount points..."
 touch $CHROOT/etc/resolv.conf
@@ -294,7 +294,7 @@ trap 'echo "Interrupted by user. Cleaning up...";
 echo "Would you like to install the GRUB bootloader? (y/n)"
 read -r installgrub
 if [ "$installgrub" = "y" ]; then
-  chroot $CHROOT dnf install -yq grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra shim grubby grub2-efi-x64-modules grub2-common
+  chroot $CHROOT dnf install -y grub2-efi-x64 grub2-tools grub2-pc grub2-tools-efi grub2-tools-extra shim grubby grub2-efi-x64-modules grub2-common
 fi
 
 echo "Would you like to install the kernel? (y/n)"
@@ -330,7 +330,7 @@ if [ "$installkernel" = "y" ]; then
       "4")
         echo "Installing Patrick Laimbock's kernel"
         dnf copr enable -y patrickl/kernel fedora-35-$(uname -m)
-        chroot $CHROOT dnf install -y kernel --disablerepo fedora --disablerepo fedora-updates
+        chroot $CHROOT dnf install -y kernel
         ;;
       *) echo "Invalid option. Please try again."; continue;;
     esac
@@ -417,7 +417,7 @@ echo "Setting up SELinux..."
 chroot $CHROOT setenforce 0
 sed -i 's/^SELINUX=disabled/SELINUX=enforcing/' $CHROOT/etc/selinux/config
 sed -i 's/^SELINUX=permissive/SELINUX=enforcing/' $CHROOT/etc/selinux/config
-chroot $CHROOT dnf install -yq policycoreutils-dbus policycoreutils-restorecond
+chroot $CHROOT dnf install -y policycoreutils-dbus policycoreutils-restorecond
 chroot $CHROOT restorecon -R /
 
 # Set up the hostname
@@ -426,11 +426,10 @@ echo "Please enter the hostname you would like to use:"
 read hostname
 if [ -z "$hostname" ]; then
   echo "No hostname specified, using default"
-  chroot $CHROOT hostnamectl set-hostname "dnfstrap"
+  echo "dnfstrap" > $CHROOT/etc/hostname
 else
-  chroot $CHROOT hostnamectl set-hostname "$hostname"
+  echo $hostname > $CHROOT/etc/hostname
 fi
-echo $hostname > $CHROOT/etc/hostname
 
 # Set up the network
 echo "Setting up the network..."
@@ -438,9 +437,9 @@ echo "Setting up the network..."
 chroot $CHROOT dhclient
 chroot $CHROOT systemctl enable NetworkManager
 chroot $CHROOT systemctl enable systemd-resolved
+chroot $CHROOT systemdtl enable dbus
 
-
-echo "Installation is almost complete, please check your GRUB configuration to ensure it is correct and bootable."
+echo "Installation is almost complete, please check your configuration to ensure it is correct and bootable."
 
 # Ask if the user would like to chroot into the system
 echo "Would you like to chroot into the system now? (y/n)"
