@@ -32,6 +32,7 @@ usage(){
   echo "  -c, --chroot            Set chroot directory"
   echo "  -d, --device            Set block device to automatically format (DANGEROUS)"
   echo "  -r, --release           Set release version"
+  echo "  -e, --enter-only        Only enter chroot and exit, only works with a standard DNFStrap install"
 }
 
 # Parse arguments
@@ -57,6 +58,9 @@ while [ "$1" != "" ]; do
                   # pkglist is a file containing a list of packages to install seperated by newlines, so we join them with spaces
                   INSTALLPKGS="$INSTALLPKGS $(cat $1)"
                   ;;
+    -e | --enter-only ) shift
+                  ENTER_ONLY=1
+                  ;;
     --dry ) DRY=1
           ;;
     * ) usage
@@ -65,9 +69,63 @@ while [ "$1" != "" ]; do
   shift
 done
 
-echo "Chroot directory: $CHROOT"
-echo "Block device: $DEVICE"
-echo "Release version: $RELEASE"
+# if enter-only is set, simply enter the chroot
+if [ "$ENTER_ONLY" == "1" ]; then
+  # check if the chroot is defined
+  if [ -z "$CHROOT" ]; then
+    echo "Chroot directory not defined"
+    exit 1
+  fi
+  # check if the device is an nvme device
+  if [ -z "$DEVICE" ]; then
+    echo "Device not defined"
+    exit 1
+  fi
+  # let's create the mountpoint
+  mkdir -p /mnt/sysroot
+  export CHROOT=/mnt/sysroot
+  # check if the device is an nvme device
+  if [ "$(echo $DEVICE | grep -o nvme)" == "nvme" ]; then
+    # NVMe devices are special, it's formatted differently as nvme0n1pX
+    mount /dev/$(echo $DEVICE)p2 /mnt/sysroot
+    mkdir -p /mnt/sysroot/boot/efi
+    mount /dev/$(echo $DEVICE)p1 /mnt/sysroot/boot/efi
+  else
+    # just mount it normally
+    mount $(echo $DEVICE)2 /mnt/sysroot
+    mkdir -p /mnt/sysroot/boot/efi
+    mount $(echo $DEVICE)1 /mnt/sysroot/boot/efi
+
+  # now we set up the chroot
+  echo "Setting up mount points..."
+  touch $CHROOT/etc/resolv.conf
+  mount --bind /etc/resolv.conf $CHROOT/etc/resolv.conf
+  mount --bind /dev $CHROOT/dev
+  mount --bind /proc $CHROOT/proc
+  mount --bind /sys $CHROOT/sys
+  # now we enter the chroot
+
+  # oh also, trap to clean up if something goes wrong
+  trap 'echo "Interrupted by user. Cleaning up...";
+      umount -l $CHROOT/dev;
+      umount -l $CHROOT/proc;
+      umount -l $CHROOT/sys;
+      umount -l $CHROOT/etc/resolv.conf
+      exit 1' INT TERM KILL
+
+
+  echo "Entering chroot..."
+  chroot $CHROOT
+  # now clean up the mounts after we're done
+  echo "Cleaning up mounts..."
+  umount $CHROOT/etc/resolv.conf
+  umount $CHROOT/dev
+  umount $CHROOT/proc
+  umount $CHROOT/sys
+  exit 0
+fi
+
+
 
 # Require release argument
 if [ -z "$RELEASE" ]; then
