@@ -436,6 +436,7 @@ setenforce 1
 systemctl enable --now auditd
 # self-destruct
 chkconfig firstboot off
+chkconfig --del firstboot
 EOF
 chmod +x $CHROOT/etc/init.d/firstboot
 chroot $CHROOT restorecon /etc/init.d/firstboot
