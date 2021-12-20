@@ -95,7 +95,7 @@ if [ "$ENTER_ONLY" == "1" ]; then
     mount $(echo $DEVICE)2 /mnt/sysroot
     mkdir -p /mnt/sysroot/boot/efi
     mount $(echo $DEVICE)1 /mnt/sysroot/boot/efi
-
+  fi
   # now we set up the chroot
   echo "Setting up mount points..."
   touch $CHROOT/etc/resolv.conf
