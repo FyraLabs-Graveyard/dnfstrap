@@ -106,13 +106,13 @@ if [ ! -z "$DEVICE" ]; then
   # the rest of the disk is the root partition
   ROOTSIZE=$(($DISKSIZE - $ESPSIZE))
   # human readable sizes
-  HESPSIZE=$(($ESPSIZE / 1024 / 1024))M
-  HROOTSIZE=$(($ROOTSIZE / 1024 / 1024))M
+  HESPSIZE=$(($ESPSIZE / 1024 / 1024))
+  HROOTSIZE=$(($ROOTSIZE / 1024 / 1024))
   echo "Block device is selected, showing partition layout"
   echo "============================================================"
   echo ""
-  echo "ESP size: $HESPSIZE"
-  echo "ROOT size: $HROOTSIZE"
+  echo "ESP size: $HESPSIZE M"
+  echo "ROOT size: $HROOTSIZE M"
   echo ""
   #exit
   # ask if you really want to format the device
@@ -126,9 +126,9 @@ if [ ! -z "$DEVICE" ]; then
           echo " Creating partitions..."
           # create the ESP partition
           parted -s $DEVICE mklabel msdos
-          parted -s $DEVICE mkpart primary fat32 0 $ESPSIZE
-          # create the root partition
-          parted -s $DEVICE mkpart primary ext4 $ESPSIZE $ROOTSIZE
+          parted -s $DEVICE mkpart primary fat32 0 $HESPSIZE
+          # Now create the root partition next to the ESP partition
+          parted -s $DEVICE mkpart primary ext4 $HESPSIZE $HROOTSIZE
           # set the ESP partition to bootable
           parted -s $DEVICE set 1 boot on
           # format the partitions
