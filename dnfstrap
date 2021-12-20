@@ -400,8 +400,9 @@ chroot $CHROOT timedatectl set-ntp true
 # Set up the timezone
 echo "Setting up the timezone..."
 # ask for the timezone
-PS3="Please enter the timezone you would like to use: (Default: Use NTP)"
-read -r timezone
+echo "Please enter the timezone you would like to use: "
+read timezone
+
 # if timezone is blank use NTP
 if [ -z "$timezone" ]; then
   echo "No timezone specified, using NTP"
