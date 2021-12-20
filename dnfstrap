@@ -273,7 +273,7 @@ dnf -y --releasever $RELEASE\
  --setopt=install_weak_deps=False\
  --setopt=reposdir=$PWD/repos\
  --nogpgcheck\
-  install @coreNetworkManager $INSTALLPKGS
+  install @core NetworkManager $INSTALLPKGS
 
 echo "Setting up mount points..."
 touch $CHROOT/etc/resolv.conf
