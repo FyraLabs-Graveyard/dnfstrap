@@ -267,7 +267,7 @@ fi
 
 read -p 'Would you like to start the bootstrapping process? (y/n) ' yn
 case $yn in
-  [Yy]* ) continue;;
+  [Yy]* ) ;;
   [Nn]* ) exit;;
   * ) echo "Please answer yes or no.";;
 esac
