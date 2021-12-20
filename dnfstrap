@@ -425,7 +425,7 @@ echo "Please enter the hostname you would like to use:"
 read hostname
 if [ -z "$hostname" ]; then
   echo "No hostname specified, using default"
-  chroot $CHROOT hostnamectl set-hostname "ultramarine"
+  chroot $CHROOT hostnamectl set-hostname "dnfstrap"
 else
   chroot $CHROOT hostnamectl set-hostname "$hostname"
 fi
