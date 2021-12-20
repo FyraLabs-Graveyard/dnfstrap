@@ -58,7 +58,7 @@ while [ "$1" != "" ]; do
                   # pkglist is a file containing a list of packages to install seperated by newlines, so we join them with spaces
                   INSTALLPKGS="$INSTALLPKGS $(cat $1)"
                   ;;
-    -e | --enter-only ) shift
+    -e | --enter-only )
                   ENTER_ONLY=1
                   ;;
     --dry ) DRY=1
