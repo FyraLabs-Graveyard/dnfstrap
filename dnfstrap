@@ -43,32 +43,25 @@ while [ "$1" != "" ]; do
                   ;;
     -c | --chroot ) shift
                   CHROOT=$1
-                  export CHROOT
                   ;;
     -d | --device ) shift
                   DEVICE=$1
-                  export CHROOT
                   ;;
     -r | --release ) shift
                   RELEASE=$1
-                  export RELEASE
                   ;;
     # -i can be defined multiple times
     -i | --installpkgs ) shift
                   INSTALLPKGS="$INSTALLPKGS $1"
-                  export INSTALLPKGS
                   ;;
     -p | --pkglist ) shift
                   # pkglist is a file containing a list of packages to install seperated by newlines, so we join them with spaces
                   INSTALLPKGS="$INSTALLPKGS $(cat $1)"
-                  export INSTALLPKGS
                   ;;
     -e | --enter-only )
                   ENTER_ONLY=1
-                  export ENTER_ONLY
                   ;;
     --dry ) DRY=1
-          export DRY
           ;;
     * ) usage
         exit 1
@@ -113,7 +106,7 @@ if [ "$ENTER_ONLY" == "1" ]; then
       umount -l $CHROOT/proc;
       umount -l $CHROOT/sys;
       umount -l $CHROOT/etc/resolv.conf
-      exit 1' INT TERM KILL
+      exit 1' INT TERM
 
 
   echo "Entering chroot..."
@@ -295,7 +288,7 @@ trap 'echo "Interrupted by user. Cleaning up...";
       umount -l $CHROOT/proc;
       umount -l $CHROOT/sys;
       umount -l $CHROOT/etc/resolv.conf
-      exit 1' INT TERM KILL
+      exit 1' INT TERM
 
 
 echo "Would you like to install the GRUB bootloader? (y/n)"
@@ -312,9 +305,8 @@ if [ "$installkernel" = "y" ]; then
   options=(
     'Vanilla'
     'XanMod'
-    'Liquorix (Zen)'
+    'Liqorix (Zen)'
     'PatrickL (futex2)'
-    'sentry (fsync+)'
   )
   select opt in "${options[@]}"; do
     case "$REPLY" in
@@ -325,25 +317,19 @@ if [ "$installkernel" = "y" ]; then
         ;;
       "2")
         echo "Installing XanMod kernel"
-        dnf copr enable -y rmnscnce/kernel-xanmod fedora-${RELEASE}-$(uname -m)
+        dnf copr enable -y rmnscnce/kernel-xanmod fedora-35-$(uname -m)
         chroot $CHROOT dnf install -y kernel-xanmod-edge
         break
         ;;
       "3")
-        echo "Installing Liquorix kernel"
-        dnf copr enable -y rmnscnce/kernel-lqx fedora-${RELEASE}-$(uname -m)
+        echo "Installing Liqorix kernel"
+        dnf copr enable -y rmnscnce/kernel-lqx fedora-35-$(uname -m)
         chroot $CHROOT dnf install -y kernel-lqx
         break
         ;;
       "4")
         echo "Installing Patrick Laimbock's kernel"
-        dnf copr enable -y patrickl/kernel fedora-${RELEASE}-$(uname -m)
-        chroot $CHROOT dnf install -y kernel
-        ;;
-      "5")
-        echo "Installing sentry's kernel"
-        #(fun fact: the person who maintains this made it out of spite and they're regretting it)
-        dnf copr enable -y sentry/kernel-fsync fedora-${RELEASE}-$(uname -m)
+        dnf copr enable -y patrickl/kernel fedora-35-$(uname -m)
         chroot $CHROOT dnf install -y kernel
         ;;
       *) echo "Invalid option. Please try again."; continue;;
