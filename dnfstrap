@@ -43,25 +43,32 @@ while [ "$1" != "" ]; do
                   ;;
     -c | --chroot ) shift
                   CHROOT=$1
+                  export CHROOT
                   ;;
     -d | --device ) shift
                   DEVICE=$1
+                  export CHROOT
                   ;;
     -r | --release ) shift
                   RELEASE=$1
+                  export RELEASE
                   ;;
     # -i can be defined multiple times
     -i | --installpkgs ) shift
                   INSTALLPKGS="$INSTALLPKGS $1"
+                  export INSTALLPKGS
                   ;;
     -p | --pkglist ) shift
                   # pkglist is a file containing a list of packages to install seperated by newlines, so we join them with spaces
                   INSTALLPKGS="$INSTALLPKGS $(cat $1)"
+                  export INSTALLPKGS
                   ;;
     -e | --enter-only )
                   ENTER_ONLY=1
+                  export ENTER_ONLY
                   ;;
     --dry ) DRY=1
+          export DRY
           ;;
     * ) usage
         exit 1
